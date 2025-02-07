@@ -72,3 +72,63 @@ export const featuredProductsQuery = groq`
     tags
   }
 `;
+export const ordersQuery = groq`
+  *[_type == "orders"] {
+    _id,
+    orderNumber,
+    customer-> {
+      _id,
+      name,
+      email
+    },
+    products[] {
+      product-> {
+        _id,
+        title,
+        price,
+        image {
+          asset -> {
+            _id,
+            url
+          }
+        }
+      },
+      quantity,
+      price
+    },
+    totalPrice,
+    orderDate,
+    status,
+    shippingAddress {
+      address,
+      city,
+      state,
+      postalCode,
+      country
+    },
+    paymentMethod,
+    paymentStatus
+  }
+`;
+export const customersQuery = groq`
+*[_type == "customer"] {
+  _id,
+  name,
+  email,
+  phone,
+  address,
+  city,
+  zipCode
+}
+`;
+export const customerByIdQuery = groq`
+  *[_type == "customer" && _id == $id][0] {
+    _id,
+    name,
+    email,
+    phone,
+    address,
+    city,
+    zipCode
+  }
+`;

@@ -483,7 +483,7 @@
 
 // export default Checkout;
 // Checkout.tsx
-"use client";
+"use client"; 
 import { useState, useEffect } from "react";
 import convertToSubCurrency from "@/app/lib/ConvertToSubCurrency";
 import CheckoutPage from "@/app/Stripe/CheckoutPage";
@@ -558,6 +558,57 @@ const Checkout = () => {
   };
 
   // Handle successful payment
+
+  const handlePlaceOrder = async () => {
+    if (!orderDetails) return;
+  
+    const orderData = {
+      orderNumber: orderDetails.orderNumber,
+      customer: {
+        _type: "customer",
+        name: customerDetails.name,
+        address: customerDetails.address,
+        phone: customerDetails.phone,
+        city: customerDetails.city,
+        zipCode: customerDetails.zipCode,
+      },
+      products: cartProducts.map((product) => ({
+        id: product.id,
+        name: product.name,
+        quantity: product.quantity,
+        price: product.price,
+      })),
+      totalPrice: orderDetails.totalPrice,
+      status: "pending",
+      paymentStatus: "paid",
+      shippingAddress: {
+        address: customerDetails.address,
+        city: customerDetails.city,
+        postalCode: customerDetails.zipCode,
+        country: "USA",
+      },
+      paymentMethod: "stripe",
+    };
+  
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderData),
+      });
+  
+      const result = await response.json();
+      if (result.success) {
+        console.log("Order saved to Sanity:", result.orderId);
+      } else {
+        console.error("Failed to save order:", result.error);
+      }
+    } catch (error) {
+      console.error("Error placing order:", error);
+    }
+  };
+  
+  // Call handlePlaceOrder after successful payment
   const handlePaymentSuccess = () => {
     const orderNumber = `ORD${Date.now()}`;
     const orderData: OrderDetails = {
@@ -570,41 +621,14 @@ const Checkout = () => {
       shippingMethod: "Standard",
       orderNotes: "Thank you for your purchase!",
     };
-
+  
     localStorage.setItem(orderNumber, JSON.stringify(orderData));
     setOrderDetails(orderData);
     setIsPaid(true);
+  
+    handlePlaceOrder(); // Save order to Sanity
   };
-
-  // Download Invoice (PDF)
-  const downloadPDF = () => {
-    if (!orderDetails) return;
-
-    const doc = new jsPDF();
-    doc.text("Order Invoice", 20, 20);
-    doc.text(`Order Number: ${orderDetails.orderNumber}`, 20, 30);
-    doc.text(`Customer Name: ${orderDetails.name}`, 20, 40);
-    doc.text(`Address: ${orderDetails.address}`, 20, 50);
-    doc.text(`Phone: ${orderDetails.phone}`, 20, 60);
-    doc.text(`Zip Code: ${orderDetails.zipCode}`, 20, 70);
-    doc.text(`City: ${orderDetails.city}`, 20, 80);
-    doc.text(`Total Price: $${orderDetails.totalPrice.toFixed(2)}`, 20, 90);
-    doc.text(`Payment Status: ${orderDetails.paymentStatus}`, 20, 100);
-    doc.text(`Shipping Method: ${orderDetails.shippingMethod}`, 20, 110);
-    doc.text(`Order Notes: ${orderDetails.orderNotes || "N/A"}`, 20, 120);
-    doc.text("Products:", 20, 130);
-
-    orderDetails.products.forEach((product, index) => {
-      doc.text(
-        `${index + 1}. ${product.name} - $${product.price.toFixed(2)} x ${product.quantity}`,
-        20,
-        140 + index * 10
-      );
-    });
-
-    doc.save(`Order_${orderDetails.orderNumber}.pdf`);
-  };
-
+ 
   return (
     <div className="flex justify-center my-10">
       <div className="flex flex-col md:flex-row space-y-10 md:space-y-0 md:space-x-10 w-full max-w-6xl">
@@ -657,7 +681,7 @@ const Checkout = () => {
                 }}
               >
                 {totalPrice > 0 ? (
-                  <CheckoutPage amount={totalPrice} />
+                  <CheckoutPage amount={totalPrice} onPaymentSuccess={handlePaymentSuccess} cartItems={[]} customer={undefined} />
                 ) : (
                   <p className="text-red-500">Your cart is empty. Add products to continue.</p>
                 )}
@@ -682,7 +706,7 @@ const Checkout = () => {
               ))}
             </div>
             <button
-              onClick={downloadPDF}
+              
               className="bg-teal-600 text-white p-3 rounded mt-4"
             >
               📄 Download Invoice
@@ -695,6 +719,238 @@ const Checkout = () => {
 };
 
 export default Checkout;
+
+
+
+// "use client";
+// import { useState, useEffect } from "react";
+// import convertToSubCurrency from "@/app/lib/ConvertToSubCurrency";
+// import CheckoutPage from "@/app/Stripe/CheckoutPage";
+// import { Elements } from "@stripe/react-stripe-js";
+// import { loadStripe } from "@stripe/stripe-js";
+// import jsPDF from "jspdf";
+
+// // Load Stripe
+// const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "");
+
+// // TypeScript Interfaces
+// interface Product {
+//   id: string;
+//   name: string;
+//   price: number;
+//   quantity: number;
+// }
+
+// interface OrderDetails {
+//   orderNumber: string;
+//   name: string;
+//   email: string;
+//   address: string;
+//   phone: string;
+//   zipCode: string;
+//   city: string;
+//   paymentStatus: string;
+//   products: Product[];
+//   totalPrice: number;
+//   shipmentTracking: string;
+//   shippingMethod: string;
+//   orderNotes: string | null;
+// }
+
+// const Checkout = () => {
+//   const [cartProducts, setCartProducts] = useState<Product[]>([]);
+//   const [customerDetails, setCustomerDetails] = useState({
+//     name: "",
+//     email: "",
+//     address: "",
+//     phone: "",
+//     zipCode: "",
+//     city: "",
+//   });
+
+//   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
+//   const [isPaid, setIsPaid] = useState(false);
+//   const [detailsSaved, setDetailsSaved] = useState(false);
+
+//   // Fetch cart products
+//   useEffect(() => {
+//     const cartData = [
+//       { id: "prod_001", name: "Sample Product 1", price: 49.99, quantity: 1 },
+//       { id: "prod_002", name: "Sample Product 2", price: 29.99, quantity: 2 },
+//     ];
+//     setCartProducts(cartData);
+//   }, []);
+
+//   // Calculate total price dynamically
+//   const totalPrice = cartProducts.reduce((total, product) => total + product.price * product.quantity, 0);
+
+//   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+//     const { name, value } = e.target;
+//     setCustomerDetails({
+//       ...customerDetails,
+//       [name]: value,
+//     });
+//   };
+
+//   // Save customer details
+//   const handleSubmit = async (e: React.FormEvent) => {
+//     e.preventDefault();
+//     setDetailsSaved(true);
+//   };
+
+//   // Handle successful payment
+//   const handlePaymentSuccess = async () => {
+//     const orderNumber = `ORD${Date.now()}`;
+//     const orderData: OrderDetails = {
+//       orderNumber,
+//       ...customerDetails,
+//       paymentStatus: "Paid",
+//       products: cartProducts,
+//       totalPrice,
+//       shipmentTracking: "Pending",
+//       shippingMethod: "Standard",
+//       orderNotes: "Thank you for your purchase!",
+//     };
+
+//     // Save order in Sanity
+//     try {
+//       await fetch("/api/orders", {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify(orderData),
+//       });
+
+//       // Send confirmation email
+//       await fetch("/api/send-email", {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({
+//           email: customerDetails.email,
+//           orderNumber,
+//           totalPrice,
+//         }),
+//       });
+
+//       localStorage.setItem(orderNumber, JSON.stringify(orderData));
+//       setOrderDetails(orderData);
+//       setIsPaid(true);
+//     } catch (error) {
+//       console.error("Error processing order:", error);
+//     }
+//   };
+
+//   // Download Invoice (PDF)
+//   const downloadPDF = () => {
+//     if (!orderDetails) return;
+
+//     const doc = new jsPDF();
+//     doc.text("Order Invoice", 20, 20);
+//     doc.text(`Order Number: ${orderDetails.orderNumber}`, 20, 30);
+//     doc.text(`Customer Name: ${orderDetails.name}`, 20, 40);
+//     doc.text(`Email: ${orderDetails.email}`, 20, 50);
+//     doc.text(`Address: ${orderDetails.address}`, 20, 60);
+//     doc.text(`Phone: ${orderDetails.phone}`, 20, 70);
+//     doc.text(`Zip Code: ${orderDetails.zipCode}`, 20, 80);
+//     doc.text(`City: ${orderDetails.city}`, 20, 90);
+//     doc.text(`Total Price: $${orderDetails.totalPrice.toFixed(2)}`, 20, 100);
+//     doc.text(`Payment Status: ${orderDetails.paymentStatus}`, 20, 110);
+//     doc.text(`Shipping Method: ${orderDetails.shippingMethod}`, 20, 120);
+//     doc.text(`Order Notes: ${orderDetails.orderNotes || "N/A"}`, 20, 130);
+//     doc.text("Products:", 20, 140);
+
+//     orderDetails.products.forEach((product, index) => {
+//       doc.text(
+//         `${index + 1}. ${product.name} - $${product.price.toFixed(2)} x ${product.quantity}`,
+//         20,
+//         150 + index * 10
+//       );
+//     });
+
+//     doc.save(`Order_${orderDetails.orderNumber}.pdf`);
+//   };
+
+
+//   return (
+//     <div className="flex justify-center my-10">
+//       <div className="flex flex-col md:flex-row space-y-10 md:space-y-0 md:space-x-10 w-full max-w-6xl">
+//         {!isPaid ? (
+//           <>
+//             {/* Customer Information Form */}
+//             <div className="flex-1 bg-white p-6 rounded-lg shadow-lg">
+//               <h2 className="text-2xl font-bold mb-4">Customer Information</h2>
+//               <form onSubmit={handleSubmit} className="space-y-4">
+//                 {["name", "email", "address", "phone", "zipCode", "city"].map((field) => (
+//                   <div key={field}>
+//                     <label htmlFor={field} className="block capitalize">
+//                       {field}
+//                     </label>
+//                     <input
+//                       type="text"
+//                       id={field}
+//                       name={field}
+//                       value={customerDetails[field as keyof typeof customerDetails]}
+//                       onChange={handleInputChange}
+//                       className="w-full border border-gray-300 p-3 rounded"
+//                       required
+//                     />
+//                   </div>
+//                 ))}
+//                 <button
+//                   type="submit"
+//                   className="bg-teal-600 text-white p-3 rounded w-full mt-4"
+//                 >
+//                   Submit Details
+//                 </button>
+//               </form>
+
+//               {detailsSaved && (
+//                 <p className="text-green-600 mt-4 font-bold flex items-center">
+//                   ✅ Your details have been saved!
+//                 </p>
+//               )}
+//             </div>
+
+//             {/* Stripe Payment Form */}
+//             <div className="flex-1 bg-white p-6 rounded-lg shadow-lg">
+//               <h2 className="text-2xl font-bold mb-4">Complete Your Payment</h2>
+//               <Elements
+//                 stripe={stripePromise}
+//                 options={{
+//                   mode: "payment",
+//                   amount: convertToSubCurrency(totalPrice > 0 ? totalPrice : 1),
+//                   currency: "usd",
+//                 }}
+//               >
+//                 {totalPrice > 0 ? (
+//                   <CheckoutPage amount={totalPrice} />
+//                 ) : (
+//                   <p className="text-red-500">Your cart is empty. Add products to continue.</p>
+//                 )}
+//               </Elements>
+//             </div>
+//           </>
+//         ) : (
+//           <div className="flex-1 bg-white p-6 rounded-lg shadow-lg text-center">
+//             <h2 className="text-2xl font-bold mb-4 text-teal-600">
+//               🎉 Thank You for Your Purchase!
+//             </h2>
+//             <button onClick={downloadPDF} className="bg-teal-600 text-white p-3 rounded mt-4">
+//               📄 Download Invoice
+//             </button>
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default Checkout;
+
+
+
+
+
+
 
 // "use client";
 // import { useState, useEffect } from "react";
