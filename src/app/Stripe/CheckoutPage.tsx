@@ -15,7 +15,7 @@
 //         URL = 'http://localhost:3000'
 //     }
 //     else {
-//         URL = 'https://comforty-app.vercel.app/';
+//         URL = 'https://comforty-web-nx82.vercel.app/';
 //     }
 
 //     const stripe = useStripe()
@@ -198,7 +198,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ amount, cartItems, customer
   const [loading, setLoading] = useState(false);
 
   const myHost = typeof window !== "undefined" ? window.location.host : "";
-  const URL = myHost === "localhost:3000" ? "http://localhost:3000" : "https://comforty-app.vercel.app/";
+  const URL = myHost === "localhost:3000" ? "http://localhost:3000" : "https://comforty-web-nx82.vercel.app/";
 
   // Fetch Client Secret for Stripe Payment Intent
   useEffect(() => {
